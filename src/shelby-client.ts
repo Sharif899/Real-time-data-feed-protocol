@@ -1,4 +1,3 @@
-// src/shelby-client.ts
 import { ShelbyNodeClient } from "@shelby-protocol/sdk/node";
 import { Account, Ed25519PrivateKey, Network } from "@aptos-labs/ts-sdk";
 import "dotenv/config";
@@ -9,18 +8,19 @@ function env(key: string): string {
   return v;
 }
 
-const networkMap: Record<string, Network> = {
-  testnet: Network.TESTNET,
-  devnet: Network.DEVNET,
-  mainnet: Network.MAINNET,
-};
+function resolveNetwork(): Network {
+  const n = (process.env.APTOS_NETWORK ?? "testnet").toLowerCase();
+  if (n === "shelbynet") return Network.SHELBYNET;
+  if (n === "local")     return Network.LOCAL;
+  return Network.TESTNET;
+}
 
-export const shelbyAccount = new Account({
+export const shelbyAccount = Account.fromPrivateKey({
   privateKey: new Ed25519PrivateKey(env("APTOS_PRIVATE_KEY")),
 });
 
 export const shelbyClient = new ShelbyNodeClient({
-  network: networkMap[(process.env.APTOS_NETWORK ?? "testnet").toLowerCase()] ?? Network.TESTNET,
+  network: resolveNetwork(),
   apiKey: env("SHELBY_API_KEY"),
 });
 
