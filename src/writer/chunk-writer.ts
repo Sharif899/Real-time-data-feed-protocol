@@ -36,7 +36,6 @@ interface FeedBuffer {
 export class ChunkWriter {
   private buffers = new Map<string, FeedBuffer>();
 
-  /** Ingest one event. Creates a buffer + flush timer for new feed_ids automatically. */
   push(event: FeedEvent): void {
     let buf = this.buffers.get(event.feed_id);
 
@@ -49,49 +48,40 @@ export class ChunkWriter {
     buf.events.push(event);
   }
 
-  /** Flush all pending buffers — call on graceful shutdown. */
   async flushAll(): Promise<void> {
     const ids = [...this.buffers.keys()];
     await Promise.allSettled(ids.map((id) => this.flush(id)));
   }
 
-  // ── private ──────────────────────────────────────────────────────
-
   private async flush(feedId: string): Promise<void> {
     const buf = this.buffers.get(feedId);
     if (!buf || buf.events.length === 0) return;
 
-    const events = buf.events.splice(0); // drain atomically
+    const events = buf.events.splice(0);
     const windowStart = buf.windowStart;
     const windowEnd   = Date.now();
     const seq         = buf.seq++;
     buf.windowStart   = windowEnd;
 
-    // Serialise to JSONL
     const jsonl = events.map((e) => JSON.stringify(e)).join("\n");
     const blobData = Buffer.from(jsonl, "utf8");
 
-    // Blob name encodes feed, window start, and sequence for easy time-range queries
     const blobPath = chunkBlobName(feedId, windowStart, seq);
     const expirationMicros = (Date.now() + BLOB_TTL_DAYS * 86_400_000) * 1000;
 
-    let merkleRoot = "pending";
     try {
-      const result = await shelbyClient.upload({
-        account: shelbyAccount,
+      await shelbyClient.upload({
+        signer: shelbyAccount,
         blobData,
         blobName: blobPath,
         expirationMicros,
       });
-      merkleRoot = result.merkleRoot ?? "pending";
     } catch (err) {
       console.error(`[ChunkWriter] Shelby upload failed for ${feedId}:`, err);
-      // Re-queue events so they go into the next window
       buf.events.unshift(...events);
       return;
     }
 
-    // Schema fingerprint from first event's top-level keys
     const schemaHash = createHash("sha256")
       .update(JSON.stringify(Object.keys(events[0]?.payload as object ?? {}).sort()))
       .digest("hex")
@@ -111,7 +101,6 @@ export class ChunkWriter {
       created_at:   new Date().toISOString(),
     };
 
-    // Persist to index
     await db.query(
       `INSERT INTO chunks
          (id, feed_id, seq, blob_path, blob_account, event_count,
@@ -125,16 +114,13 @@ export class ChunkWriter {
       ]
     );
 
-    // Notify subscribers
     await redis.publish(feedChannel(feedId), JSON.stringify(record));
 
     console.log(
-      `[ChunkWriter] feed=${feedId} seq=${seq} events=${events.length} ` +
-      `path=${blobPath} merkle=${merkleRoot.slice(0, 12)}…`
+      `[ChunkWriter] feed=${feedId} seq=${seq} events=${events.length} path=${blobPath}`
     );
   }
 
-  /** Graceful shutdown — clear all timers, flush remaining events. */
   async destroy(): Promise<void> {
     for (const buf of this.buffers.values()) {
       if (buf.timer) clearInterval(buf.timer);
