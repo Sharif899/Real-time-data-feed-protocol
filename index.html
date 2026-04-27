@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FEEDNET — Real-time Data Feed Protocol</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #040508;
+    --surface: #0a0c12;
+    --surface2: #111420;
+    --border: #1e2235;
+    --accent: #00ff88;
+    --accent2: #0066ff;
+    --accent3: #ff3366;
+    --text: #e8eaf2;
+    --muted: #4a4f6a;
+    --glow: 0 0 40px rgba(0,255,136,0.15);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    overflow-x: hidden;
+    cursor: none;
+  }
+
+  /* Custom cursor */
+  .cursor {
+    position: fixed;
+    width: 12px; height: 12px;
+    background: var(--accent);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9999;
+    transform: translate(-50%, -50%);
+    transition: transform 0.1s, width 0.2s, height 0.2s, opacity 0.2s;
+    mix-blend-mode: screen;
+  }
+  .cursor-ring {
+    position: fixed;
+    width: 36px; height: 36px;
+    border: 1px solid rgba(0,255,136,0.4);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9998;
+    transform: translate(-50%, -50%);
+    transition: transform 0.15s ease-out, width 0.3s, height 0.3s;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,255,136,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,255,136,0.03) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* NAV */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 48px;
+    background: rgba(4,5,8,0.8);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .nav-logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 20px;
+    letter-spacing: -0.5px;
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .nav-logo span { color: var(--text); }
+
+  .nav-links { display: flex; gap: 32px; align-items: center; }
+  .nav-links a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--accent); }
+
+  .nav-btn {
+    background: var(--accent);
+    color: #000;
+    padding: 8px 20px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    border: none;
+    cursor: none;
+    transition: transform 0.2s, box-shadow 0.2s;
+    text-decoration: none;
+  }
+  .nav-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(0,255,136,0.3);
+  }
+
+  /* HERO */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 120px 48px 80px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .hero-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 32px;
+  }
+  .hero-tag::before {
+    content: '';
+    width: 24px; height: 1px;
+    background: var(--accent);
+  }
+
+  .hero h1 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: clamp(56px, 9vw, 130px);
+    line-height: 0.92;
+    letter-spacing: -3px;
+    margin-bottom: 40px;
+  }
+
+  .hero h1 .line2 {
+    color: transparent;
+    -webkit-text-stroke: 1px rgba(232,234,242,0.3);
+  }
+  .hero h1 .accent { color: var(--accent); }
+
+  .hero-sub {
+    max-width: 480px;
+    font-size: 14px;
+    line-height: 1.8;
+    color: var(--muted);
+    margin-bottom: 48px;
+  }
+
+  .hero-actions { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+    padding: 14px 32px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    border: none;
+    cursor: none;
+    text-decoration: none;
+    display: inline-block;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .btn-primary:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 40px rgba(0,255,136,0.35);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text);
+    padding: 14px 32px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    border: 1px solid var(--border);
+    cursor: none;
+    text-decoration: none;
+    display: inline-block;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Floating stats */
+  .hero-stats {
+    position: absolute;
+    right: 48px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 20px 24px;
+    min-width: 160px;
+    position: relative;
+    overflow: hidden;
+  }
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .stat-card:hover::before { opacity: 1; }
+
+  .stat-value {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 32px;
+    color: var(--accent);
+    line-height: 1;
+  }
+  .stat-label {
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+
+  /* Live indicator */
+  .live-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    padding: 4px 10px;
+    border: 1px solid rgba(0,255,136,0.3);
+    background: rgba(0,255,136,0.05);
+  }
+  .live-dot {
+    width: 6px; height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: pulse 1.5s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+
+  /* SECTION COMMON */
+  section { position: relative; z-index: 1; }
+
+  .section-label {
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+    max-width: 60px;
+  }
+
+  /* HOW IT WORKS */
+  .how {
+    padding: 120px 48px;
+    border-top: 1px solid var(--border);
+  }
+
+  .how h2 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: clamp(36px, 5vw, 64px);
+    letter-spacing: -2px;
+    margin-bottom: 80px;
+    max-width: 600px;
+    line-height: 1.05;
+  }
+
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1px;
+    background: var(--border);
+  }
+
+  .step {
+    background: var(--bg);
+    padding: 40px 32px;
+    position: relative;
+    transition: background 0.3s;
+  }
+  .step:hover { background: var(--surface); }
+
+  .step-num {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 48px;
+    color: var(--border);
+    line-height: 1;
+    margin-bottom: 24px;
+    transition: color 0.3s;
+  }
+  .step:hover .step-num { color: var(--accent); }
+
+  .step h3 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 18px;
+    margin-bottom: 12px;
+  }
+  .step p { font-size: 13px; color: var(--muted); line-height: 1.7; }
+
+  /* FEATURES */
+  .features {
+    padding: 120px 48px;
+    border-top: 1px solid var(--border);
+  }
+
+  .features-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+    align-items: start;
+    margin-top: 64px;
+  }
+
+  .features-list { display: flex; flex-direction: column; gap: 2px; }
+
+  .feat {
+    padding: 24px 28px;
+    border: 1px solid transparent;
+    cursor: none;
+    transition: border-color 0.2s, background 0.2s;
+    position: relative;
+  }
+  .feat.active, .feat:hover {
+    border-color: var(--border);
+    background: var(--surface);
+  }
+  .feat.active::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 2px;
+    background: var(--accent);
+  }
+
+  .feat-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 16px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .feat-icon { color: var(--accent); font-size: 18px; }
+  .feat p { font-size: 13px; color: var(--muted); line-height: 1.7; }
+
+  .feat-preview {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 32px;
+    font-size: 12px;
+    line-height: 1.8;
+    position: sticky;
+    top: 100px;
+  }
+
+  .code-block {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 24px;
+    font-size: 12px;
+    line-height: 1.8;
+    overflow-x: auto;
+  }
+  .code-block .kw { color: #0066ff; }
+  .code-block .str { color: var(--accent); }
+  .code-block .fn { color: #ff9500; }
+  .code-block .cm { color: var(--muted); }
+  .code-block .num { color: #ff3366; }
+
+  /* DASHBOARD */
+  .dashboard-section {
+    padding: 120px 48px;
+    border-top: 1px solid var(--border);
+  }
+
+  .dashboard-section h2 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: clamp(36px, 5vw, 64px);
+    letter-spacing: -2px;
+    margin-bottom: 16px;
+    line-height: 1.05;
+  }
+
+  .dashboard-section > p {
+    color: var(--muted);
+    font-size: 14px;
+    margin-bottom: 48px;
+  }
+
+  /* Dashboard UI */
+  .dashboard {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .dash-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+  }
+
+  .dash-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+  }
+
+  .dash-body {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    min-height: 500px;
+  }
+
+  .dash-sidebar {
+    border-right: 1px solid var(--border);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .dash-sidebar-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 8px 12px;
+    margin-top: 8px;
+  }
+
+  .feed-item {
+    padding: 12px 16px;
+    border: 1px solid transparent;
+    cursor: none;
+    transition: all 0.2s;
+    border-radius: 2px;
+  }
+  .feed-item:hover, .feed-item.active {
+    background: var(--surface2);
+    border-color: var(--border);
+  }
+  .feed-item.active { border-left-color: var(--accent); }
+
+  .feed-name {
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .feed-meta { font-size: 11px; color: var(--muted); }
+
+  .dash-main { padding: 24px; display: flex; flex-direction: column; gap: 24px; }
+
+  .dash-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+
+  .metric {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 16px 20px;
+  }
+  .metric-val {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 24px;
+    color: var(--accent);
+  }
+  .metric-lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+
+  .chunk-log {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 16px;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .chunk-log-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .chunk-log-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--muted);
+  }
+
+  .chunk-entries { display: flex; flex-direction: column; gap: 8px; }
+
+  .chunk-entry {
+    display: grid;
+    grid-template-columns: 80px 1fr 80px 80px;
+    gap: 16px;
+    font-size: 11px;
+    padding: 8px 12px;
+    border: 1px solid transparent;
+    transition: border-color 0.2s, background 0.2s;
+    align-items: center;
+  }
+  .chunk-entry:hover { border-color: var(--border); background: var(--surface2); }
+  .chunk-entry.new { border-color: rgba(0,255,136,0.2); background: rgba(0,255,136,0.03); animation: newChunk 0.5s ease; }
+
+  @keyframes newChunk {
+    from { opacity: 0; transform: translateX(-8px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  .chunk-seq { color: var(--accent); font-weight: 500; }
+  .chunk-path { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chunk-events { color: var(--text); text-align: right; }
+  .chunk-time { color: var(--muted); text-align: right; }
+
+  /* Mini chart */
+  .mini-chart { height: 60px; display: flex; align-items: flex-end; gap: 3px; }
+  .bar {
+    flex: 1;
+    background: var(--border);
+    border-radius: 1px;
+    transition: height 0.4s ease, background 0.2s;
+    min-height: 4px;
+  }
+  .bar:hover { background: var(--accent); }
+
+  /* Input area */
+  .dash-input {
+    display: flex;
+    gap: 8px;
+    padding: 16px;
+    border-top: 1px solid var(--border);
+    background: var(--bg);
+  }
+
+  .dash-input input {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .dash-input input:focus { border-color: var(--accent); }
+  .dash-input input::placeholder { color: var(--muted); }
+
+  .dash-input button {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    padding: 10px 20px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 1px;
+    cursor: none;
+    transition: opacity 0.2s;
+    white-space: nowrap;
+  }
+  .dash-input button:hover { opacity: 0.85; }
+
+  /* API REFERENCE */
+  .api-section {
+    padding: 120px 48px;
+    border-top: 1px solid var(--border);
+  }
+
+  .api-section h2 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: clamp(36px, 5vw, 64px);
+    letter-spacing: -2px;
+    margin-bottom: 64px;
+    line-height: 1.05;
+  }
+
+  .endpoints { display: flex; flex-direction: column; gap: 2px; }
+
+  .endpoint {
+    display: grid;
+    grid-template-columns: 80px 280px 1fr 120px;
+    gap: 24px;
+    align-items: center;
+    padding: 20px 24px;
+    border: 1px solid transparent;
+    transition: all 0.2s;
+    cursor: none;
+  }
+  .endpoint:hover {
+    border-color: var(--border);
+    background: var(--surface);
+  }
+
+  .method {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 1px;
+    padding: 4px 8px;
+    text-align: center;
+  }
+  .method.get { background: rgba(0,102,255,0.15); color: #0066ff; }
+  .method.post { background: rgba(0,255,136,0.1); color: var(--accent); }
+
+  .endpoint-path { font-size: 13px; color: var(--text); }
+  .endpoint-desc { font-size: 12px; color: var(--muted); }
+  .endpoint-badge {
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: right;
+  }
+
+  /* FOOTER */
+  footer {
+    padding: 80px 48px 40px;
+    border-top: 1px solid var(--border);
+    position: relative;
+    z-index: 1;
+  }
+
+  .footer-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 64px;
+  }
+
+  .footer-brand {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 48px;
+    letter-spacing: -2px;
+    color: var(--border);
+    line-height: 1;
+  }
+
+  .footer-links {
+    display: grid;
+    grid-template-columns: repeat(2, 140px);
+    gap: 12px 48px;
+  }
+
+  .footer-links a {
+    font-size: 12px;
+    color: var(--muted);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  .footer-links a:hover { color: var(--accent); }
+
+  .footer-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 32px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* Animations */
+  .fade-up {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+  .fade-up.visible { opacity: 1; transform: translateY(0); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    nav { padding: 16px 24px; }
+    .hero { padding: 100px 24px 60px; }
+    .hero-stats { display: none; }
+    .features-grid { grid-template-columns: 1fr; }
+    .dash-body { grid-template-columns: 1fr; }
+    .dash-sidebar { display: none; }
+    .dash-metrics { grid-template-columns: repeat(2,1fr); }
+    .endpoint { grid-template-columns: 70px 1fr; }
+    .endpoint-desc, .endpoint-badge { display: none; }
+    .how, .features, .dashboard-section, .api-section, footer { padding: 80px 24px; }
+    .footer-top { flex-direction: column; gap: 40px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="cursor" id="cursor"></div>
+<div class="cursor-ring" id="cursorRing"></div>
+
+<!-- NAV -->
+<nav>
+  <a class="nav-logo" href="#"><span>FEED</span>NET</a>
+  <div class="nav-links">
+    <a href="#how">Protocol</a>
+    <a href="#features">Features</a>
+    <a href="#dashboard">Dashboard</a>
+    <a href="#api">API</a>
+    <a class="nav-btn" href="#dashboard">Launch App</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-tag">Real-time Data Feed Protocol</div>
+  <h1>
+    STREAM<br>
+    <span class="line2">ANY DATA</span><br>
+    <span class="accent">INSTANTLY</span>
+  </h1>
+  <p class="hero-sub">
+    Chunk any real-time stream — financial ticks, IoT sensors, social signals —
+    into verifiable blobs on Shelby Protocol. Serve AI pipelines at millisecond latency.
+  </p>
+  <div class="hero-actions">
+    <a class="btn-primary" href="#dashboard">Open Dashboard</a>
+    <a class="btn-ghost" href="#api">View API Docs</a>
+  </div>
+
+  <div class="hero-stats">
+    <div class="stat-card">
+      <div class="stat-value" id="hero-feeds">0</div>
+      <div class="stat-label">Active Feeds</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="hero-chunks">0</div>
+      <div class="stat-label">Total Chunks</div>
+    </div>
+    <div class="stat-card">
+      <div class="live-badge"><span class="live-dot"></span>Live</div>
+      <div class="stat-label" style="margin-top:8px">Network Status</div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="how" id="how">
+  <div class="section-label">Protocol</div>
+  <h2 class="fade-up">How the feed works</h2>
+  <div class="steps fade-up">
+    <div class="step">
+      <div class="step-num">01</div>
+      <h3>Produce</h3>
+      <p>POST events to <code>/ingest</code> from any source — sensors, APIs, webhooks, financial feeds. Batch up to 1000 events per request.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">02</div>
+      <h3>Chunk</h3>
+      <p>Events are buffered in a time window (default 5s), serialised to JSONL, and uploaded as a verifiable blob to Shelby Protocol.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">03</div>
+      <h3>Index</h3>
+      <p>Each chunk is indexed in Postgres with its sequence number, timestamp window, and schema fingerprint. Subscribers are notified instantly via Redis pub/sub.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">04</div>
+      <h3>Subscribe</h3>
+      <p>AI pipelines subscribe via SSE and receive every new chunk the moment it lands. Or poll the REST API for historical replay.</p>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="features" id="features">
+  <div class="section-label">Features</div>
+  <div class="features-grid">
+    <div class="features-list">
+      <div class="feat active" onclick="setFeat(0)">
+        <div class="feat-title"><span class="feat-icon">⚡</span> Sub-second delivery</div>
+        <p>Chunks land in subscriber pipelines within milliseconds of the window closing. No polling delays.</p>
+      </div>
+      <div class="feat" onclick="setFeat(1)">
+        <div class="feat-title"><span class="feat-icon">🔗</span> Decentralised storage</div>
+        <p>All chunk data is stored on Shelby Protocol — erasure-coded across 16 storage providers on private fiber.</p>
+      </div>
+      <div class="feat" onclick="setFeat(2)">
+        <div class="feat-title"><span class="feat-icon">📡</span> SSE subscriptions</div>
+        <p>Subscribe to any feed with a single HTTP connection. Receive ChunkRecord notifications in real time with auto-reconnect.</p>
+      </div>
+      <div class="feat" onclick="setFeat(3)">
+        <div class="feat-title"><span class="feat-icon">🔍</span> Historical replay</div>
+        <p>Query any past chunk by sequence number or timestamp. Stream blobs directly from Shelby RPC for training data replay.</p>
+      </div>
+      <div class="feat" onclick="setFeat(4)">
+        <div class="feat-title"><span class="feat-icon">🧬</span> Schema detection</div>
+        <p>Every chunk carries a schema fingerprint. Subscribers detect breaking changes automatically without a schema registry.</p>
+      </div>
+    </div>
+    <div class="feat-preview">
+      <div id="feat-code"></div>
+    </div>
+  </div>
+</section>
+
+<!-- LIVE DASHBOARD -->
+<section class="dashboard-section" id="dashboard">
+  <div class="section-label">Dashboard</div>
+  <h2 class="fade-up">Live feed monitor</h2>
+  <p>Connected to <strong id="api-url">your API</strong> — watching feeds in real time.</p>
+
+  <div class="dashboard fade-up">
+    <div class="dash-header">
+      <div class="dash-title">FEEDNET Console</div>
+      <div style="display:flex;gap:12px;align-items:center">
+        <div class="live-badge"><span class="live-dot"></span>Connected</div>
+        <input id="api-input" placeholder="https://your-api.vercel.app" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:6px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;outline:none;width:260px;" oninput="updateApiUrl(this.value)"/>
+      </div>
+    </div>
+    <div class="dash-body">
+      <div class="dash-sidebar">
+        <div class="dash-sidebar-label">Feeds</div>
+        <div id="feed-list">
+          <div style="font-size:12px;color:var(--muted);padding:12px 16px;">No feeds yet</div>
+        </div>
+      </div>
+      <div class="dash-main">
+        <div class="dash-metrics">
+          <div class="metric">
+            <div class="metric-val" id="m-feeds">—</div>
+            <div class="metric-lbl">Feeds</div>
+          </div>
+          <div class="metric">
+            <div class="metric-val" id="m-chunks">—</div>
+            <div class="metric-lbl">Chunks</div>
+          </div>
+          <div class="metric">
+            <div class="metric-val" id="m-events">—</div>
+            <div class="metric-lbl">Events</div>
+          </div>
+          <div class="metric">
+            <div class="metric-val" id="m-latest">—</div>
+            <div class="metric-lbl">Latest seq</div>
+          </div>
+        </div>
+
+        <div class="chunk-log">
+          <div class="chunk-log-header">
+            <div class="chunk-log-title">Chunk stream</div>
+            <div class="mini-chart" id="mini-chart">
+              <div class="bar" style="height:20%"></div>
+              <div class="bar" style="height:40%"></div>
+              <div class="bar" style="height:60%"></div>
+              <div class="bar" style="height:35%"></div>
+              <div class="bar" style="height:75%"></div>
+              <div class="bar" style="height:50%"></div>
+              <div class="bar" style="height:90%"></div>
+              <div class="bar" style="height:45%"></div>
+              <div class="bar" style="height:65%"></div>
+              <div class="bar" style="height:30%"></div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:80px 1fr 80px 80px;gap:16px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;padding:0 12px;margin-bottom:8px;">
+            <span>Seq</span><span>Blob Path</span><span style="text-align:right">Events</span><span style="text-align:right">Time</span>
+          </div>
+          <div class="chunk-entries" id="chunk-entries">
+            <div style="font-size:12px;color:var(--muted);padding:24px 12px;text-align:center;">Enter your API URL above and select a feed to start monitoring</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="dash-input">
+      <input id="ingest-feed" placeholder="feed_id (e.g. BTC-USD)" style="max-width:200px"/>
+      <input id="ingest-payload" placeholder='payload JSON (e.g. {"price":65000})'/>
+      <button onclick="sendEvent()">Send Event</button>
+    </div>
+  </div>
+</section>
+
+<!-- API REFERENCE -->
+<section class="api-section" id="api">
+  <div class="section-label">API Reference</div>
+  <h2 class="fade-up">Endpoints</h2>
+  <div class="endpoints fade-up">
+    <div class="endpoint">
+      <div class="method get">GET</div>
+      <div class="endpoint-path">/health</div>
+      <div class="endpoint-desc">Server health check</div>
+      <div class="endpoint-badge">Public</div>
+    </div>
+    <div class="endpoint">
+      <div class="method post">POST</div>
+      <div class="endpoint-path">/feeds</div>
+      <div class="endpoint-desc">Register a new feed</div>
+      <div class="endpoint-badge">Write</div>
+    </div>
+    <div class="endpoint">
+      <div class="method get">GET</div>
+      <div class="endpoint-path">/feeds</div>
+      <div class="endpoint-desc">List all registered feeds</div>
+      <div class="endpoint-badge">Read</div>
+    </div>
+    <div class="endpoint">
+      <div class="method post">POST</div>
+      <div class="endpoint-path">/ingest</div>
+      <div class="endpoint-desc">Ingest a single event into a feed</div>
+      <div class="endpoint-badge">Write</div>
+    </div>
+    <div class="endpoint">
+      <div class="method post">POST</div>
+      <div class="endpoint-path">/ingest/batch</div>
+      <div class="endpoint-desc">Batch ingest up to 1000 events</div>
+      <div class="endpoint-badge">Write</div>
+    </div>
+    <div class="endpoint">
+      <div class="method get">GET</div>
+      <div class="endpoint-path">/feeds/:id/chunks</div>
+      <div class="endpoint-desc">List chunks with pagination and time-range filters</div>
+      <div class="endpoint-badge">Read</div>
+    </div>
+    <div class="endpoint">
+      <div class="method get">GET</div>
+      <div class="endpoint-path">/feeds/:id/latest</div>
+      <div class="endpoint-desc">Get the most recent chunk record</div>
+      <div class="endpoint-badge">Read</div>
+    </div>
+    <div class="endpoint">
+      <div class="method get">GET</div>
+      <div class="endpoint-path">/feeds/:id/chunks/:seq/stream</div>
+      <div class="endpoint-desc">Stream a chunk blob from Shelby RPC</div>
+      <div class="endpoint-badge">Stream</div>
+    </div>
+    <div class="endpoint">
+      <div class="method get">GET</div>
+      <div class="endpoint-path">/feeds/:id/subscribe</div>
+      <div class="endpoint-desc">SSE — push ChunkRecord on every new chunk</div>
+      <div class="endpoint-badge">SSE</div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-top">
+    <div class="footer-brand">FEEDNET</div>
+    <div class="footer-links">
+      <a href="#how">Protocol</a>
+      <a href="#api">API Docs</a>
+      <a href="#features">Features</a>
+      <a href="#dashboard">Dashboard</a>
+      <a href="https://docs.shelby.xyz" target="_blank">Shelby Docs</a>
+      <a href="https://github.com/Sharif899/Real-time-data-feed-protocol" target="_blank">GitHub</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>Built on Shelby Protocol</span>
+    <span>Real-time · Decentralised · Fast</span>
+  </div>
+</footer>
+
+<script>
+// ── Cursor ────────────────────────────────────────────────────────
+const cursor = document.getElementById('cursor');
+const ring = document.getElementById('cursorRing');
+let mx = 0, my = 0, rx = 0, ry = 0;
+document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+(function animCursor() {
+  rx += (mx - rx) * 0.15; ry += (my - ry) * 0.15;
+  cursor.style.left = mx + 'px'; cursor.style.top = my + 'px';
+  ring.style.left = rx + 'px'; ring.style.top = ry + 'px';
+  requestAnimationFrame(animCursor);
+})();
+
+// ── Scroll animations ─────────────────────────────────────────────
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.1 });
+document.querySelectorAll('.fade-up').forEach(el => obs.observe(el));
+
+// ── Feature codes ─────────────────────────────────────────────────
+const featCodes = [
+  `<span class="cm">// Subscribe to live chunks</span>
+<span class="kw">const</span> client = <span class="kw">new</span> <span class="fn">FeedClient</span>({
+  indexUrl: <span class="str">"https://your-api.vercel.app"</span>
+});
+
+<span class="kw">for await</span> (<span class="kw">const</span> event <span class="kw">of</span>
+  client.<span class="fn">stream</span>(<span class="str">"BTC-USD"</span>)) {
+  <span class="cm">// &lt;5ms from chunk landing</span>
+  <span class="kw">await</span> pipeline.<span class="fn">process</span>(event);
+}`,
+  `<span class="cm">// Clay erasure coding</span>
+<span class="cm">// 16 storage providers</span>
+<span class="cm">// Private fiber backbone</span>
+
+<span class="kw">await</span> shelbyClient.<span class="fn">upload</span>({
+  signer: shelbyAccount,
+  blobData: chunkBuffer,
+  blobName: <span class="str">\`feeds/BTC/\${seq}.jsonl\`</span>,
+  expirationMicros: ttl
+});
+<span class="cm">// Immutable, verifiable blob</span>`,
+  `<span class="cm">// SSE subscription</span>
+<span class="kw">const</span> unsub = client.<span class="fn">subscribe</span>(
+  <span class="str">"BTC-USD"</span>,
+  <span class="kw">async</span> (chunk) => {
+    <span class="cm">// Fires on every new chunk</span>
+    <span class="kw">const</span> events = <span class="kw">await</span>
+      client.<span class="fn">readChunk</span>(
+        <span class="str">"BTC-USD"</span>, chunk.seq
+      );
+    <span class="kw">await</span> model.<span class="fn">update</span>(events);
+  }
+);`,
+  `<span class="cm">// Historical replay</span>
+<span class="kw">const</span> chunks = <span class="kw">await</span>
+  client.<span class="fn">listChunks</span>(<span class="str">"BTC-USD"</span>, {
+    sinceSeq: <span class="num">100</span>,
+    sinceTs: <span class="num">1735000000000</span>,
+    limit: <span class="num">200</span>
+  });
+
+<span class="kw">for</span> (<span class="kw">const</span> c <span class="kw">of</span> chunks) {
+  <span class="kw">const</span> data = <span class="kw">await</span>
+    client.<span class="fn">readChunk</span>(<span class="str">"BTC-USD"</span>, c.seq);
+}`,
+  `<span class="cm">// Schema fingerprint</span>
+<span class="cm">// Auto-detected per chunk</span>
+
+chunk.schema_hash
+<span class="cm">// "a3f9b2c1e4d8..."</span>
+
+<span class="cm">// Detect breaking changes:</span>
+<span class="kw">if</span> (chunk.schema_hash !== prev) {
+  console.<span class="fn">warn</span>(
+    <span class="str">"Schema changed!"</span>
+  );
+  <span class="kw">await</span> pipeline.<span class="fn">rehydrate</span>();
+}`
+];
+
+function setFeat(i) {
+  document.querySelectorAll('.feat').forEach((f,j) => {
+    f.classList.toggle('active', j === i);
+  });
+  document.getElementById('feat-code').innerHTML =
+    `<div class="code-block">${featCodes[i]}</div>`;
+}
+setFeat(0);
+
+// ── API URL ───────────────────────────────────────────────────────
+let API_URL = '';
+
+function updateApiUrl(val) {
+  API_URL = val.replace(/\/$/, '');
+  document.getElementById('api-url').textContent = API_URL || 'your API';
+  if (API_URL) loadDashboard();
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────
+let selectedFeed = null;
+let totalEvents = 0;
+let pollInterval = null;
+
+async function loadDashboard() {
+  if (!API_URL) return;
+  try {
+    const res = await fetch(`${API_URL}/feeds`);
+    const { feeds } = await res.json();
+
+    document.getElementById('m-feeds').textContent = feeds.length;
+    document.getElementById('hero-feeds').textContent = feeds.length;
+
+    const list = document.getElementById('feed-list');
+    if (feeds.length === 0) {
+      list.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:12px 16px;">No feeds yet — send an event below</div>';
+      return;
+    }
+
+    list.innerHTML = feeds.map(f => `
+      <div class="feed-item ${selectedFeed === f.id ? 'active' : ''}" onclick="selectFeed('${f.id}')">
+        <div class="feed-name">
+          <span>${f.id}</span>
+          <span class="live-dot" style="width:6px;height:6px;background:var(--accent);border-radius:50%;display:inline-block;animation:pulse 1.5s infinite"></span>
+        </div>
+        <div class="feed-meta">${f.name || ''}</div>
+      </div>
+    `).join('');
+
+    if (!selectedFeed && feeds.length > 0) selectFeed(feeds[0].id);
+  } catch(e) {
+    console.error('Dashboard load failed:', e);
+  }
+}
+
+async function selectFeed(id) {
+  selectedFeed = id;
+  if (pollInterval) clearInterval(pollInterval);
+  await loadChunks();
+  pollInterval = setInterval(loadChunks, 3000);
+  loadDashboard(); // refresh sidebar active state
+}
+
+async function loadChunks() {
+  if (!API_URL || !selectedFeed) return;
+  try {
+    const res = await fetch(`${API_URL}/feeds/${selectedFeed}/chunks?limit=20`);
+    const { chunks } = await res.json();
+
+    document.getElementById('m-chunks').textContent = chunks.length;
+    document.getElementById('hero-chunks').textContent = chunks.length;
+
+    if (chunks.length > 0) {
+      const latest = chunks[chunks.length - 1];
+      document.getElementById('m-latest').textContent = `#${latest.seq}`;
+      totalEvents = chunks.reduce((s, c) => s + c.event_count, 0);
+      document.getElementById('m-events').textContent = totalEvents;
+    }
+
+    // Update chart bars
+    const bars = document.getElementById('mini-chart').querySelectorAll('.bar');
+    chunks.slice(-10).forEach((c, i) => {
+      const max = Math.max(...chunks.map(x => x.event_count), 1);
+      if (bars[i]) bars[i].style.height = Math.max(8, (c.event_count / max) * 100) + '%';
+    });
+
+    const entries = document.getElementById('chunk-entries');
+    if (chunks.length === 0) {
+      entries.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:24px 12px;text-align:center;">No chunks yet — send some events</div>';
+      return;
+    }
+
+    entries.innerHTML = chunks.slice().reverse().map((c, i) => `
+      <div class="chunk-entry ${i === 0 ? 'new' : ''}">
+        <span class="chunk-seq">#${c.seq}</span>
+        <span class="chunk-path">${c.blob_path || '—'}</span>
+        <span class="chunk-events">${c.event_count} evt</span>
+        <span class="chunk-time">${timeSince(c.created_at)}</span>
+      </div>
+    `).join('');
+  } catch(e) {}
+}
+
+function timeSince(iso) {
+  const s = Math.floor((Date.now() - new Date(iso)) / 1000);
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.floor(s/60)}m ago`;
+  return `${Math.floor(s/3600)}h ago`;
+}
+
+async function sendEvent() {
+  const feedId = document.getElementById('ingest-feed').value.trim();
+  const payloadStr = document.getElementById('ingest-payload').value.trim();
+  if (!API_URL || !feedId) return alert('Enter your API URL and a feed ID first');
+
+  let payload;
+  try { payload = payloadStr ? JSON.parse(payloadStr) : { ts: Date.now() }; }
+  catch { return alert('Invalid JSON payload'); }
+
+  // Auto-register feed
+  await fetch(`${API_URL}/feeds`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: feedId, name: feedId })
+  });
+
+  const res = await fetch(`${API_URL}/ingest`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ feed_id: feedId, payload })
+  });
+
+  if (res.ok) {
+    document.getElementById('ingest-payload').value = '';
+    selectFeed(feedId);
+  }
+}
+
+// Counter animation
+function animCount(el, target) {
+  let cur = 0;
+  const step = Math.ceil(target / 30);
+  const t = setInterval(() => {
+    cur = Math.min(cur + step, target);
+    el.textContent = cur;
+    if (cur >= target) clearInterval(t);
+  }, 40);
+}
+
+// Auto-load if URL in hash
+window.addEventListener('load', () => {
+  const saved = localStorage.getItem('feednet-api-url');
+  if (saved) {
+    document.getElementById('api-input').value = saved;
+    updateApiUrl(saved);
+  }
+});
+
+document.getElementById('api-input').addEventListener('change', e => {
+  localStorage.setItem('feednet-api-url', e.target.value);
+});
+</script>
+</body>
+</html>
