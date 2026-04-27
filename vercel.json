@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "src/writer/server.ts",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "src/index/server.ts",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    { "src": "/ingest(.*)", "dest": "src/writer/server.ts" },
+    { "src": "/feeds(.*)", "dest": "src/index/server.ts" },
+    { "src": "/health", "dest": "src/index/server.ts" }
+  ]
+}
