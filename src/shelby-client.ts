@@ -8,7 +8,7 @@ function env(key: string): string {
   return v;
 }
 
-function resolveNetwork(): Network {
+function resolveNetwork(): Network.TESTNET | Network.SHELBYNET | Network.LOCAL {
   const n = (process.env.APTOS_NETWORK ?? "testnet").toLowerCase();
   if (n === "shelbynet") return Network.SHELBYNET;
   if (n === "local")     return Network.LOCAL;
